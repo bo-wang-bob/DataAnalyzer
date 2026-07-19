@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "docreview"
+version = "0.1.0"
+description = "Local-first Word, PDF and image keyword evidence review"
+requires-python = ">=3.11"
+dependencies = [
+  "pdfplumber>=0.11",
+  "Pillow>=10",
+  "pypdfium2>=4.30,<5",
+]
+
+[project.optional-dependencies]
+paddle = ["paddleocr>=3.0,<4", "paddlepaddle>=3.0,<4"]
+dev = ["pytest>=8"]
+
+[project.scripts]
+docreview = "docreview.cli:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]

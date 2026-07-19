@@ -1,0 +1,16 @@
+{
+  "source_dir": "datas",
+  "data_dir": ".data",
+  "output_dir": "output",
+  "ocr_backend": "auto",
+  "render_dpi": 180,
+  "native_text_min_chars": 20,
+  "embedded_image_min_area": 0.02,
+  "max_pages": null,
+  "paddle_device": "cpu",
+  "paddle_lang": "ch",
+  "libreoffice_path": null,
+  "pdftoppm_path": null,
+  "node_path": null,
+  "artifact_node_modules": null
+}

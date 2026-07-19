@@ -1,0 +1,15 @@
+.DS_Store
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.runtime/
+.data/
+output/
+node_modules
+config.yaml
+settings.json
+settings.windows.json
+tests/
+datas/
+scripts/test_windows.ps1
