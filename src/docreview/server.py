@@ -125,7 +125,7 @@ class ServerJobManager:
         record = self.get(job_id)
         if not record:
             return
-        self.update(job_id, status="running", message="正在初始化 OCR", error="")
+        self.update(job_id, status="running", message="正在开始分析", error="")
         try:
             rules = parse_keyword_text(str(record.get("keywords", "")))
             if not rules:
