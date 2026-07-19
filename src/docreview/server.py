@@ -556,8 +556,8 @@ def _home_page(manager: ServerJobManager, limits: ServerLimits) -> str:
       <form id="upload-form" class="analysis-form">
         <label>任务名称（可选）<input name="task_name" maxlength="100" placeholder="例如：7 月合同合规检查"></label>
         <div class="upload-grid">
-          <label class="upload-zone">选择文件<input id="file-input" type="file" multiple><span>可同时选择多个 Word、PDF 或图片</span></label>
-          <label class="upload-zone">选择文件夹<input id="folder-input" type="file" webkitdirectory directory multiple><span>上传文件夹及其子目录</span></label>
+          <label class="upload-zone"><span class="upload-icon" aria-hidden="true">＋</span><strong>选择文件</strong><span>可同时选择多个 Word、PDF 或图片</span><input id="file-input" type="file" multiple></label>
+          <label class="upload-zone"><span class="upload-icon folder-icon" aria-hidden="true">⌑</span><strong>选择文件夹</strong><span>上传文件夹及其子目录</span><input id="folder-input" type="file" webkitdirectory directory multiple></label>
         </div>
         <div id="file-summary" class="selection-summary">尚未选择文件</div>
         <label>关键词（每行一个；正则以 re: 开头）
@@ -612,7 +612,7 @@ def _job_page(manager: ServerJobManager, record: dict, requested_page: int) -> s
     )
     rows = "".join(
         f"""<tr><td><span class="status {status_class(item['review_status'])}">{h(item['review_status'])}</span></td>
-        <td>{h(item['keyword'])}</td><td class="filename">{h(_display_source(manager, job_id, item['source_path']))}</td>
+        <td>{h(item['keyword'])}</td><td class="filename" title="{h(_display_source(manager, job_id, item['source_path']))}"><span>{h(_display_source(manager, job_id, item['source_path']))}</span></td>
         <td class="page-number">{item['page_no']}</td><td class="excerpt">{h(shorten(item['text'], 180))}</td>
         <td><a class="button small" href="/jobs/{job_id}/review?{urlencode({'id': item['id'], 'page': page})}">审核证据</a></td></tr>"""
         for item in matches
@@ -707,14 +707,21 @@ def _server_pagination(job_id: str, page: int, total_pages: int, total: int) -> 
 def _login_page(error: str = "") -> str:
     error_html = f'<div class="error">{h(error)}</div>' if error else ""
     body = f"""
-    <div class="login-shell"><section class="panel login-panel">
-      <p class="eyebrow">DOCREVIEW SERVER</p><h1>登录文档分析系统</h1>
-      <p>只有获得授权的用户才能上传和审核文档。</p>{error_html}
-      <form method="post" action="/login" class="analysis-form">
-        <label>用户名<input name="login_username" autocomplete="username" required autofocus></label>
-        <label>密码<input name="login_password" type="password" autocomplete="current-password" required></label>
-        <button class="button" type="submit">登录</button>
-      </form>
+    <div class="login-shell"><section class="login-card">
+      <div class="login-intro"><div class="brand-mark" aria-hidden="true">D</div>
+        <p class="eyebrow">DOCREVIEW SERVER</p><h1>文档证据<br>审核平台</h1>
+        <p>统一分析 Word、PDF 与图片，快速定位关键词所在段落和页面证据。</p>
+        <div class="login-feature"><span>01</span><p><strong>文档统一解析</strong><small>原生文本与 OCR 图像内容</small></p></div>
+        <div class="login-feature"><span>02</span><p><strong>证据精准回溯</strong><small>保留页码、位置与来源路径</small></p></div>
+      </div>
+      <div class="login-form-panel"><p class="eyebrow">SECURE ACCESS</p><h2>欢迎回来</h2>
+        <p>请使用管理员分配的账户登录。</p>{error_html}
+        <form method="post" action="/login" class="analysis-form">
+          <label>用户名<input name="login_username" autocomplete="username" placeholder="请输入用户名" required autofocus></label>
+          <label>密码<input name="login_password" type="password" autocomplete="current-password" placeholder="请输入密码" required></label>
+          <button class="button" type="submit">安全登录</button>
+        </form><small class="security-note">仅授权用户可访问上传文件、审核记录和导出数据</small>
+      </div>
     </section></div><style>{SERVER_CSS}</style>
     """
     return layout("登录 · 服务器文档分析", body)
@@ -870,11 +877,13 @@ form.addEventListener('submit', async (event) => {
 
 SERVER_CSS = """
 .upload-panel{border-top:4px solid var(--teal)}.upload-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
-.upload-zone{padding:18px;border:1px dashed #8da2b5;border-radius:10px;background:#f8fafb;cursor:pointer}.upload-zone:hover{border-color:var(--teal);background:#f2fbf8}
-.upload-zone input{margin:0 0 8px;padding:0;border:0}.upload-zone span{display:block;color:var(--muted);font-size:12px;font-weight:400}
-.selection-summary{padding:10px 12px;border-radius:8px;background:var(--soft);color:var(--navy);font-weight:700;font-size:13px}
-.hidden{display:none}.export-strip{display:flex;align-items:center;justify-content:space-between;gap:20px;border-left:4px solid var(--teal)}
+.upload-zone{position:relative;display:flex;min-height:156px;flex-direction:column;align-items:center;justify-content:center;padding:24px;border:1.5px dashed #8ba7b7;border-radius:14px;background:linear-gradient(145deg,#f8fbfc,#f1f7f8);cursor:pointer;text-align:center;transition:.18s ease}.upload-zone:hover{border-color:var(--teal);background:#f0fbf9;transform:translateY(-1px);box-shadow:0 10px 24px rgba(15,139,141,.09)}
+.upload-zone input{position:absolute;width:1px;height:1px;margin:0;padding:0;opacity:0;pointer-events:none}.upload-zone strong{display:block;margin:8px 0 3px;color:var(--navy);font-size:14px}.upload-zone>span:not(.upload-icon){display:block;color:var(--muted);font-size:12px;font-weight:450}.upload-icon{display:grid;place-items:center;width:42px;height:42px;border-radius:13px;background:#fff;color:var(--teal);font-size:23px;font-weight:400;box-shadow:0 7px 18px rgba(16,42,67,.09)}.folder-icon{font-size:25px}
+.selection-summary{padding:11px 13px;border:1px solid #deeaef;border-radius:10px;background:var(--soft);color:var(--navy);font-weight:750;font-size:13px}
+.hidden{display:none}.export-strip{display:flex;align-items:center;justify-content:space-between;gap:20px;border-left:4px solid var(--teal);background:linear-gradient(110deg,#fff 0%,#f3fbfa 100%)}
 .disabled-button{opacity:.5;cursor:not-allowed}.disabled-button:hover{transform:none;background:var(--teal)}
-.header-actions{display:flex;gap:9px;align-items:center}.logout-form{margin:0}.login-shell{min-height:calc(100vh - 110px);display:grid;place-items:center}.login-panel{width:min(440px,100%);padding:34px}.login-panel h1{font-size:30px}.login-panel>p:not(.eyebrow){margin-bottom:22px}.login-panel .error{margin-top:18px}.login-panel .button{width:100%}
-@media(max-width:700px){.upload-grid{grid-template-columns:1fr}.export-strip{align-items:flex-start;flex-direction:column}.export-strip .button{width:100%}}
+.header-actions{display:flex;gap:10px;align-items:center}.logout-form{margin:0}.login-shell{min-height:calc(100vh - 104px);display:grid;place-items:center}.login-card{display:grid;grid-template-columns:minmax(300px,.9fr) minmax(360px,1.1fr);width:min(880px,100%);overflow:hidden;border:1px solid rgba(255,255,255,.6);border-radius:24px;background:#fff;box-shadow:0 28px 80px rgba(16,42,67,.16)}
+.login-intro{position:relative;padding:46px 42px;background:linear-gradient(145deg,#102a43,#16445a 65%,#0c7374);overflow:hidden}.login-intro:after{content:"";position:absolute;right:-100px;bottom:-110px;width:310px;height:310px;border:1px solid rgba(255,255,255,.13);border-radius:50%;box-shadow:0 0 0 45px rgba(255,255,255,.025),0 0 0 90px rgba(255,255,255,.018)}.login-intro>*{position:relative;z-index:1}.brand-mark{display:grid;place-items:center;width:46px;height:46px;margin-bottom:35px;border:1px solid rgba(255,255,255,.24);border-radius:14px;background:rgba(255,255,255,.1);color:#fff;font-size:21px;font-weight:850;box-shadow:inset 0 1px 0 rgba(255,255,255,.18)}.login-intro .eyebrow{color:#78ddd6}.login-intro h1{margin:8px 0 14px;color:#fff;font-size:38px}.login-intro>p:not(.eyebrow){max-width:330px;margin-bottom:30px;color:#c8d9e3}.login-feature{display:flex;align-items:center;gap:12px;margin-top:15px}.login-feature>span{display:grid;place-items:center;width:31px;height:31px;border-radius:9px;background:rgba(255,255,255,.1);color:#8de3dc;font-size:10px;font-weight:850}.login-feature p{display:grid;color:#fff;line-height:1.35}.login-feature strong{font-size:12px}.login-feature small{margin-top:2px;color:#afc8d4;font-size:11px}
+.login-form-panel{display:flex;flex-direction:column;justify-content:center;padding:52px 54px}.login-form-panel h2{margin:4px 0 6px;font-size:28px}.login-form-panel>p:not(.eyebrow){margin-bottom:28px}.login-form-panel .analysis-form{gap:17px}.login-form-panel .button{width:100%;margin-top:5px}.login-form-panel .error{margin:-12px 0 22px;box-shadow:none}.security-note{display:block;margin-top:18px;color:#8293a1;font-size:11px;text-align:center}
+@media(max-width:700px){.upload-grid{grid-template-columns:1fr}.upload-zone{min-height:130px}.export-strip{align-items:flex-start;flex-direction:column}.export-strip .button{width:100%}.header-actions{align-items:stretch;flex-direction:column}.header-actions .button,.header-actions form,.header-actions form .button{width:100%}.login-shell{min-height:calc(100vh - 28px)}.login-card{grid-template-columns:1fr;border-radius:18px}.login-intro{padding:28px 24px}.brand-mark{margin-bottom:22px}.login-intro h1{font-size:30px}.login-feature{display:none}.login-form-panel{padding:30px 24px 32px}}
 """
