@@ -124,7 +124,15 @@ docker compose --env-file .env -f docker-compose.gpu.yml up -d --build
 docker compose --env-file .env -f docker-compose.gpu.yml logs -f
 ```
 
-浏览器访问 `http://服务器IP:8765`，在登录页输入 `DOCREVIEW_USERNAME` 和 `DOCREVIEW_PASSWORD`。未登录用户不能访问任务、上传、审核、证据图片或导出接口。确认容器能看到 GPU：
+如果服务器已缓存 NVIDIA CUDA 12.8 基础镜像，或访问 Paddle 容器仓库不稳定，可以改用仓库中的备用 Dockerfile；Paddle GPU 包仍从官方 CUDA 12.6 包源安装。在 Apple Silicon Mac 上为 x86_64 Linux GPU 服务器构建时，必须明确指定 `linux/amd64`：
+
+```bash
+docker buildx build --platform linux/amd64 --load \
+  -t docreview-server:gpu \
+  -f deploy/Dockerfile.gpu.cuda .
+```
+
+浏览器访问 `http://服务器IP:DOCREVIEW_PORT`（默认 `8765`），在登录页输入 `DOCREVIEW_USERNAME` 和 `DOCREVIEW_PASSWORD`。未登录用户不能访问任务、上传、审核、证据图片或导出接口。确认容器能看到 GPU：
 
 ```bash
 docker compose --env-file .env -f docker-compose.gpu.yml exec docreview nvidia-smi

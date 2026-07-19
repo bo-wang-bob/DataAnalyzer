@@ -8,6 +8,8 @@ __pycache__/
 .data/
 .server-data/
 output/
+deploy/images/
+*.tar.zst
 node_modules
 .env
 config.yaml

@@ -1,0 +1,75 @@
+ARG BASE_IMAGE=nvidia/cuda:12.8.0-base-ubuntu22.04
+FROM ${BASE_IMAGE}
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    TMPDIR=/var/lib/docreview/tmp \
+    PADDLE_PDX_MODEL_SOURCE=bos \
+    PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK=True
+
+ARG UBUNTU_MIRROR=
+RUN mkdir -p /var/lib/docreview/tmp \
+    && if [ -n "${UBUNTU_MIRROR}" ]; then \
+        sed -i \
+            -e "s|http://archive.ubuntu.com/ubuntu|${UBUNTU_MIRROR}|g" \
+            -e "s|http://security.ubuntu.com/ubuntu|${UBUNTU_MIRROR}|g" \
+            /etc/apt/sources.list; \
+    fi \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends \
+        ca-certificates \
+        curl \
+        fonts-noto-cjk \
+        libgl1 \
+        libglib2.0-0 \
+        libgomp1 \
+        libreoffice-writer \
+        poppler-utils \
+        python3 \
+        python3-pip \
+        python3-setuptools \
+        python3-wheel \
+    && rm -rf /var/lib/apt/lists/*
+
+ARG MINICONDA_URL=https://mirrors.tuna.tsinghua.edu.cn/anaconda/miniconda/Miniconda3-py311_26.5.3-1-Linux-x86_64.sh
+RUN curl --fail --location "${MINICONDA_URL}" --output /tmp/miniconda.sh \
+    && bash /tmp/miniconda.sh -b -p /opt/conda \
+    && rm -f /tmp/miniconda.sh \
+    && /opt/conda/bin/conda clean --all --yes
+ENV PATH=/opt/conda/bin:${PATH}
+
+WORKDIR /app
+COPY pyproject.toml README.md ./
+COPY src ./src
+COPY tools ./tools
+COPY deploy/settings.server.json ./deploy/settings.server.json
+
+ARG PADDLE_GPU_VERSION=3.3.1
+ARG PADDLE_WHEEL_INDEX=https://www.paddlepaddle.org.cn/packages/stable/cu126/
+ARG PADDLE_GPU_PACKAGE=paddlepaddle-gpu==${PADDLE_GPU_VERSION}
+ARG PYPI_INDEX_URL=https://pypi.org/simple
+RUN python3 -m pip install --no-cache-dir \
+        "${PADDLE_GPU_PACKAGE}" \
+        --index-url "${PADDLE_WHEEL_INDEX}"
+RUN python3 -m pip install --no-cache-dir \
+        --index-url "${PYPI_INDEX_URL}" \
+        "setuptools>=68" \
+        wheel
+RUN python3 -m pip install --no-cache-dir \
+        --no-build-isolation \
+        --index-url "${PYPI_INDEX_URL}" \
+        ".[server]" \
+        "paddleocr>=3.0,<4"
+
+RUN mkdir -p /var/lib/docreview/tmp \
+    && python3 -c "from importlib.metadata import version; import docreview; print('PaddlePaddle', version('paddlepaddle-gpu')); print('DocReview', version('docreview'))" \
+    && command -v docreview
+
+EXPOSE 8765
+VOLUME ["/var/lib/docreview", "/root/.paddlex"]
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
+  CMD curl --fail http://127.0.0.1:8765/healthz || exit 1
+
+CMD ["docreview", "--config", "/app/deploy/settings.server.json", "server", "--host", "0.0.0.0", "--port", "8765", "--storage", "/var/lib/docreview"]
