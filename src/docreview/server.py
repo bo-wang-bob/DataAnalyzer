@@ -42,10 +42,14 @@ class ServerJobManager:
         self.jobs: dict[str, dict] = {}
         self.export_locks: dict[str, threading.Lock] = {}
         self.ocr_engine = None
+        self.delete_uploads_after_analysis = _env_enabled(
+            "DOCREVIEW_DELETE_UPLOADS_AFTER_ANALYSIS"
+        )
         self._load_jobs()
 
     def _load_jobs(self) -> None:
         recover: list[str] = []
+        cleanup: list[str] = []
         for metadata_path in sorted(self.jobs_root.glob("*/job.json")):
             try:
                 record = json.loads(metadata_path.read_text(encoding="utf-8"))
@@ -63,10 +67,15 @@ class ServerJobManager:
                     record["status"] = "error"
                     record["error"] = "服务在上传过程中重启，请重新提交任务"
                     self._write_record(record)
+                    cleanup.append(job_id)
+                elif status in {"complete", "error"}:
+                    cleanup.append(job_id)
             except Exception as exc:
                 print(f"[server] 无法加载任务 {metadata_path}: {exc}")
         for job_id in recover:
             self.submit(job_id)
+        for job_id in cleanup:
+            self._delete_analysis_sources(job_id)
 
     def create_record(self, name: str, keywords: str) -> dict:
         job_id = secrets.token_hex(10)
@@ -82,6 +91,9 @@ class ServerJobManager:
             "total": 0,
             "file_count": 0,
             "upload_bytes": 0,
+            "source_files_deleted": False,
+            "source_files_deleted_at": "",
+            "source_cleanup_error": "",
             "created_at": now,
             "updated_at": now,
         }
@@ -144,6 +156,45 @@ class ServerJobManager:
             self.update(job_id, status="complete", message="分析完成")
         except Exception as exc:
             self.update(job_id, status="error", message="分析失败", error=str(exc))
+        finally:
+            self._delete_analysis_sources(job_id)
+
+    def _delete_analysis_sources(self, job_id: str) -> None:
+        """Delete uploaded and reproducible working files, preserving review evidence."""
+        if not self.delete_uploads_after_analysis:
+            return
+        job_dir = self.job_dir(job_id)
+        targets = (
+            job_dir / "uploads",
+            job_dir / "data" / "pages",
+            job_dir / "data" / "regions",
+            job_dir / "data" / "converted",
+        )
+        errors: list[str] = []
+        for target in targets:
+            try:
+                if target.is_symlink() or target.is_file():
+                    target.unlink(missing_ok=True)
+                elif target.exists():
+                    shutil.rmtree(target)
+            except OSError as exc:
+                errors.append(f"{target.name}: {exc}")
+        remaining = [target.name for target in targets if target.exists()]
+        if remaining:
+            errors.append("仍存在: " + ", ".join(remaining))
+        if errors:
+            self.update(
+                job_id,
+                source_files_deleted=False,
+                source_cleanup_error="; ".join(errors),
+            )
+            return
+        self.update(
+            job_id,
+            source_files_deleted=True,
+            source_files_deleted_at=_utc_now(),
+            source_cleanup_error="",
+        )
 
     def update(self, job_id: str, **values) -> None:
         with self.lock:
@@ -579,10 +630,18 @@ def _job_page(manager: ServerJobManager, record: dict, requested_page: int) -> s
         if export_disabled
         else f'<a class="button" href="/jobs/{job_id}/export">下载全部审核数据 (.xlsx)</a>'
     )
+    retention_note = (
+        "原始文件已从服务器删除"
+        if record.get("source_files_deleted")
+        else "分析结束后自动删除原始文件"
+        if manager.delete_uploads_after_analysis and status in {"uploading", "queued", "running"}
+        else ""
+    )
+    retention_text = f" · {h(retention_note)}" if retention_note else ""
     body = f"""
     {refresh}
     <header><div><p class="eyebrow">SERVER JOB · {h(job_id)}</p><h1>{h(record['name'])}</h1>
-      <p>{int(record.get('file_count', 0))} 个上传文件 · {_human_bytes(int(record.get('upload_bytes', 0)))} · {h(_status_label(status))}</p></div>
+      <p>{int(record.get('file_count', 0))} 个上传文件 · {_human_bytes(int(record.get('upload_bytes', 0)))} · {h(_status_label(status))}{retention_text}</p></div>
       <div class="header-actions"><a class="button secondary" href="/">新建或查看其他任务</a>{_logout_form()}</div></header>
     {progress}<section class="cards">{cards}</section>
     <section class="panel export-strip"><div><h2>审核与归档</h2><p>页面用于逐条核对；Excel 会导出本任务全部命中、来源路径、备注和证据截图。</p></div>{export_action}</section>
@@ -719,6 +778,10 @@ def _valid_session_cookie(token: str, username: str, secret: str) -> bool:
 
 def _valid_job_id(job_id: str) -> bool:
     return len(job_id) == 20 and all(character in "0123456789abcdef" for character in job_id)
+
+
+def _env_enabled(name: str) -> bool:
+    return os.environ.get(name, "").strip().lower() in {"1", "true", "yes", "on"}
 
 
 def _display_source(manager: ServerJobManager, job_id: str, source_path: str) -> str:

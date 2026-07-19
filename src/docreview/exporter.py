@@ -86,8 +86,6 @@ def _subprocess_error_detail(stderr: str, stdout: str) -> str:
 
 def _with_display_source_paths(rows: list[dict], settings: AppSettings) -> list[dict]:
     upload_root = settings.data_dir.parent / "uploads"
-    if not upload_root.is_dir():
-        return rows
     root = upload_root.resolve()
     result: list[dict] = []
     for row in rows:

@@ -210,11 +210,10 @@ def _write_text(worksheet, row: int, column: int, value, cell_format) -> None:
 def _display_source_path(settings: AppSettings, value) -> str:
     source = Path(str(value or ""))
     upload_root = settings.data_dir.parent / "uploads"
-    if upload_root.is_dir():
-        try:
-            return source.resolve().relative_to(upload_root.resolve()).as_posix()
-        except ValueError:
-            pass
+    try:
+        return source.resolve().relative_to(upload_root.resolve()).as_posix()
+    except ValueError:
+        pass
     return str(value or "")
 
 

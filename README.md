@@ -147,6 +147,7 @@ docker compose --env-file .env -f docker-compose.gpu.yml exec docreview python -
 - Word 在 Linux 容器中由 LibreOffice 无界面转换为 PDF，不依赖 Microsoft Word。
 - Excel 优先使用 artifact-tool；服务器容器没有该运行时时会自动使用 XlsxWriter 兼容导出器。
 - 容器重启后，已排队或正在分析的任务会重新进入队列；数据保存在 `docreview-data` Docker volume。
+- `DOCREVIEW_DELETE_UPLOADS_AFTER_ANALYSIS=true` 时，任务成功或失败后会立即删除原始上传文件，以及可重新生成的页面、区域和转换缓存；SQLite 审核记录、命中段落、相对来源路径、证据截图和导出文件会保留，审核与回溯不受影响。服务启动时也会清理此前已结束任务的这些文件。
 - `/healthz` 和 `/readyz` 可供云平台健康检查使用。
 
 停止服务：
