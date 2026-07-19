@@ -236,6 +236,11 @@ def create_server_app(
         "yes",
         "on",
     }
+    allowed_origins = {
+        value.strip().rstrip("/")
+        for value in os.environ.get("DOCREVIEW_ALLOWED_ORIGINS", "").split(",")
+        if value.strip()
+    }
 
     def authenticated(request: Request) -> bool:
         if not (username and password):
@@ -262,7 +267,9 @@ def create_server_app(
         if request.method == "POST":
             origin = request.headers.get("Origin")
             host = request.headers.get("Host", "")
-            if origin and urlparse(origin).netloc != host:
+            normalized_origin = origin.rstrip("/") if origin else ""
+            same_host = bool(origin) and urlparse(origin).netloc.lower() == host.lower()
+            if origin and not same_host and normalized_origin not in allowed_origins:
                 return HTMLResponse("拒绝跨站请求", status_code=403)
         if request.method == "POST" and request.url.path == "/jobs":
             content_length = request.headers.get("Content-Length")

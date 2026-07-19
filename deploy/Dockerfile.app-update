@@ -1,0 +1,9 @@
+ARG BASE_IMAGE=zhou-dataanalyzer:gpu
+FROM ${BASE_IMAGE}
+
+# Repackage application-only changes without rebuilding the large CUDA and
+# Paddle dependency layers. The base image must already exist on the target.
+COPY src/docreview /opt/conda/lib/python3.11/site-packages/docreview
+
+RUN python3 -m compileall -q /opt/conda/lib/python3.11/site-packages/docreview \
+    && python3 -c "import docreview.server; print('DocReview application update ready')"

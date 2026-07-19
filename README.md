@@ -117,7 +117,7 @@ cd deploy
 cp server.env.example .env
 ```
 
-编辑 `deploy/.env`，务必替换登录密码和会话密钥。会话密钥可以通过 `openssl rand -base64 48` 生成。使用 HTTPS 时将 `DOCREVIEW_COOKIE_SECURE` 改为 `true`，然后启动：
+编辑 `deploy/.env`，务必替换登录密码和会话密钥。会话密钥可以通过 `openssl rand -base64 48` 生成。如果经过反向代理或内置浏览器访问，请把公开访问地址写入 `DOCREVIEW_ALLOWED_ORIGINS`（多个地址使用英文逗号分隔）。少数沙箱浏览器会发送 `Origin: null`，仅在确有需要时把字面值 `null` 加入允许列表。使用 HTTPS 时将 `DOCREVIEW_COOKIE_SECURE` 改为 `true`，然后启动：
 
 ```bash
 docker compose --env-file .env -f docker-compose.gpu.yml up -d --build
