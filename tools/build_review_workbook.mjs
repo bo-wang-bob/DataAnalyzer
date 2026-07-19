@@ -239,8 +239,13 @@ unsupportedSheet.freezePanes.freezeRows(3);
 
 await fs.mkdir(path.dirname(outputPath), { recursive: true });
 await fs.mkdir(qaDir, { recursive: true });
-for (const name of ["审核汇总", "审核明细", "不支持文件"]) {
-  const preview = await workbook.render({ sheetName: name, autoCrop: "all", scale: 1, format: "png" });
+const previewRanges = {
+  "审核汇总": "A1:F17",
+  "审核明细": `A1:M${Math.min(detailLastRow, 18)}`,
+  "不支持文件": `A1:D${Math.min(Math.max(4, 3 + unsupported.length), 30)}`,
+};
+for (const [name, range] of Object.entries(previewRanges)) {
+  const preview = await workbook.render({ sheetName: name, range, scale: 1, format: "png" });
   await fs.writeFile(path.join(qaDir, `${name}.png`), new Uint8Array(await preview.arrayBuffer()));
 }
 

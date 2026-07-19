@@ -1,0 +1,28 @@
+services:
+  docreview:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.gpu
+    image: docreview-server:gpu
+    init: true
+    restart: unless-stopped
+    ports:
+      - "${DOCREVIEW_PORT:-8765}:8765"
+    environment:
+      DOCREVIEW_USERNAME: "${DOCREVIEW_USERNAME:-admin}"
+      DOCREVIEW_PASSWORD: "${DOCREVIEW_PASSWORD:?请先设置 DOCREVIEW_PASSWORD}"
+      DOCREVIEW_SESSION_SECRET: "${DOCREVIEW_SESSION_SECRET:?请先设置 DOCREVIEW_SESSION_SECRET}"
+      DOCREVIEW_SESSION_TTL_HOURS: "${DOCREVIEW_SESSION_TTL_HOURS:-12}"
+      DOCREVIEW_COOKIE_SECURE: "${DOCREVIEW_COOKIE_SECURE:-false}"
+      CUDA_VISIBLE_DEVICES: "${CUDA_VISIBLE_DEVICES:-0}"
+    volumes:
+      - docreview-data:/var/lib/docreview
+      - docreview-model-cache:/root/.paddlex
+    shm_size: "8gb"
+    gpus: all
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  docreview-data:
+  docreview-model-cache:

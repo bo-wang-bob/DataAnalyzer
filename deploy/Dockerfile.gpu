@@ -1,0 +1,37 @@
+FROM ccr-2vdh3abv-pub.cnc.bj.baidubce.com/paddlepaddle/paddle:3.3.1-gpu-cuda12.6-cudnn9.5
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    TMPDIR=/var/lib/docreview/tmp \
+    PADDLE_PDX_MODEL_SOURCE=bos \
+    PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK=True
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        curl \
+        fonts-noto-cjk \
+        libgl1 \
+        libglib2.0-0 \
+        libreoffice-writer \
+        poppler-utils \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+COPY pyproject.toml README.md ./
+COPY src ./src
+COPY tools ./tools
+COPY deploy/settings.server.json ./deploy/settings.server.json
+
+RUN python -m pip install --no-cache-dir -e ".[server]" "paddleocr>=3.0,<4"
+
+RUN mkdir -p /var/lib/docreview/tmp \
+    && python -c "import paddle; print('PaddlePaddle', paddle.__version__); print('CUDA build', paddle.device.is_compiled_with_cuda())"
+
+EXPOSE 8765
+VOLUME ["/var/lib/docreview", "/root/.paddlex"]
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
+  CMD curl --fail http://127.0.0.1:8765/healthz || exit 1
+
+CMD ["docreview", "--config", "/app/deploy/settings.server.json", "server", "--host", "0.0.0.0", "--port", "8765", "--storage", "/var/lib/docreview"]

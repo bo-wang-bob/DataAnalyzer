@@ -22,6 +22,13 @@ def build_parser() -> argparse.ArgumentParser:
     serve.add_argument("--host", default="127.0.0.1")
     serve.add_argument("--port", type=int, default=8765)
 
+    server = subparsers.add_parser("server", help="启动 Linux 云服务器上传分析版")
+    server.add_argument("--host", default="0.0.0.0")
+    server.add_argument("--port", type=int, default=8765)
+    server.add_argument("--storage", type=Path, default=Path(".server-data"))
+    server.add_argument("--max-upload-mb", type=int, default=2048)
+    server.add_argument("--max-files", type=int, default=2000)
+
     scan = subparsers.add_parser("scan", help="在命令行分析目录")
     scan.add_argument("--source", type=Path, default=Path("datas"))
     scan.add_argument("--keywords", nargs="*", default=[])
@@ -51,6 +58,19 @@ def main(argv: list[str] | None = None) -> None:
 
     if args.command == "serve":
         run_server(settings, db, args.host, args.port)
+        return
+    if args.command == "server":
+        from .server import run_production_server
+
+        storage = args.storage if args.storage.is_absolute() else root_dir / args.storage
+        run_production_server(
+            settings,
+            storage,
+            args.host,
+            args.port,
+            args.max_upload_mb,
+            args.max_files,
+        )
         return
     if args.command == "export":
         path = export_review_workbook(db, settings, args.filename)

@@ -9,6 +9,7 @@
   "max_pages": null,
   "paddle_device": "cpu",
   "paddle_lang": "ch",
+  "word_backend": "auto",
   "libreoffice_path": null,
   "pdftoppm_path": null,
   "node_path": null,

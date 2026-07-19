@@ -12,6 +12,8 @@ from .platform_tools import (
     find_libreoffice,
     find_node,
     find_pdftoppm,
+    find_powershell,
+    microsoft_word_available,
 )
 
 
@@ -35,14 +37,7 @@ def run_diagnostics(settings: AppSettings) -> list[DiagnosticCheck]:
         _module_check("pdfplumber", "pdfplumber"),
     ]
 
-    libreoffice = find_libreoffice(settings.libreoffice_path)
-    checks.append(
-        DiagnosticCheck(
-            "LibreOffice",
-            libreoffice is not None,
-            str(libreoffice) if libreoffice else "未找到 soffice；Word 文件将无法处理",
-        )
-    )
+    checks.extend(_word_converter_checks(settings, system))
 
     backend = settings.ocr_backend.strip().lower()
     if backend in {"auto", "apple", "apple-vision"} and system == "Darwin":
@@ -117,3 +112,69 @@ def required_checks_pass(checks: list[DiagnosticCheck]) -> bool:
 def _module_check(name: str, module: str) -> DiagnosticCheck:
     available = importlib.util.find_spec(module) is not None
     return DiagnosticCheck(name, available, "已安装" if available else "未安装")
+
+
+def _word_converter_checks(
+    settings: AppSettings, system: str
+) -> list[DiagnosticCheck]:
+    backend = settings.word_backend.strip().lower().replace("_", "-")
+    backend = {"word": "microsoft-word", "msword": "microsoft-word"}.get(
+        backend, backend
+    )
+    libreoffice = find_libreoffice(settings.libreoffice_path)
+    word_registered = microsoft_word_available() if system == "Windows" else False
+    powershell = find_powershell() if system == "Windows" else None
+    word_ready = word_registered and powershell is not None
+
+    if backend == "auto":
+        converter_ready = word_ready or libreoffice is not None
+        selected = (
+            "Microsoft Word COM"
+            if word_ready
+            else ("LibreOffice" if libreoffice else "均不可用")
+        )
+    elif backend == "microsoft-word":
+        converter_ready = word_ready
+        selected = "Microsoft Word COM"
+    elif backend == "libreoffice":
+        converter_ready = libreoffice is not None
+        selected = "LibreOffice"
+    else:
+        converter_ready = False
+        selected = f"未知后端: {settings.word_backend}"
+
+    checks: list[DiagnosticCheck] = []
+    if system == "Windows":
+        word_detail = (
+            f"已注册；PowerShell: {powershell}"
+            if word_ready
+            else (
+                "已注册，但未找到 PowerShell"
+                if word_registered
+                else "未检测到 Microsoft Word 桌面版"
+            )
+        )
+        checks.append(
+            DiagnosticCheck(
+                "Microsoft Word COM",
+                word_ready,
+                word_detail,
+                required=False,
+            )
+        )
+    checks.extend(
+        [
+            DiagnosticCheck(
+                "LibreOffice fallback",
+                libreoffice is not None,
+                str(libreoffice) if libreoffice else "未找到；作为可选备用不影响 Word COM",
+                required=False,
+            ),
+            DiagnosticCheck(
+                "Word converter",
+                converter_ready,
+                f"配置: {backend}；当前选择: {selected}",
+            ),
+        ]
+    )
+    return checks

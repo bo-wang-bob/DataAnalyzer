@@ -116,6 +116,7 @@ class AppSettings:
     max_pages: int | None = None
     paddle_device: str = "cpu"
     paddle_lang: str = "ch"
+    word_backend: str = "auto"
     libreoffice_path: Path | None = None
     pdftoppm_path: Path | None = None
     node_path: Path | None = None

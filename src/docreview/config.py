@@ -23,6 +23,7 @@ def load_settings(root_dir: Path, config_path: Path | None = None) -> AppSetting
         settings.max_pages = int(value) if value not in (None, "") else None
         settings.paddle_device = str(raw.get("paddle_device", "cpu"))
         settings.paddle_lang = str(raw.get("paddle_lang", "ch"))
+        settings.word_backend = str(raw.get("word_backend", "auto"))
         settings.libreoffice_path = _resolve_optional(root_dir, raw.get("libreoffice_path"))
         settings.pdftoppm_path = _resolve_optional(root_dir, raw.get("pdftoppm_path"))
         settings.node_path = _resolve_optional(root_dir, raw.get("node_path"))

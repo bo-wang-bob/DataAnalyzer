@@ -177,7 +177,9 @@ class ReviewDatabase:
             )
             return int(cursor.lastrowid)
 
-    def list_matches(self, limit: int = 500) -> list[dict]:
+    def list_matches(self, limit: int = 500, offset: int = 0) -> list[dict]:
+        safe_limit = max(1, min(int(limit), 100_000))
+        safe_offset = max(0, int(offset))
         with self.connect() as conn:
             rows = conn.execute(
                 """
@@ -191,9 +193,9 @@ class ReviewDatabase:
                 JOIN blocks b ON b.id = m.block_id
                 JOIN documents d ON d.id = b.document_id
                 ORDER BY m.id DESC
-                LIMIT ?
+                LIMIT ? OFFSET ?
                 """,
-                (limit,),
+                (safe_limit, safe_offset),
             ).fetchall()
             return [dict(row) for row in rows]
 

@@ -16,9 +16,10 @@ ProgressCallback = Callable[[int, int, str], None]
 
 
 class Analyzer:
-    def __init__(self, settings: AppSettings, db: ReviewDatabase):
+    def __init__(self, settings: AppSettings, db: ReviewDatabase, ocr_engine=None):
         self.settings = settings
         self.db = db
+        self.ocr_engine = ocr_engine
 
     def analyze_directory(
         self,
@@ -32,7 +33,7 @@ class Analyzer:
         if not rules:
             raise ValueError("至少需要一个关键词")
         files = self._discover_files(source_dir)
-        ocr = create_ocr_engine(
+        ocr = self.ocr_engine or create_ocr_engine(
             self.settings.ocr_backend,
             self.settings.root_dir,
             self.settings.paddle_device,

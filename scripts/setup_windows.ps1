@@ -67,6 +67,12 @@ $SofficeCandidates = @(
     "${env:ProgramFiles(x86)}\LibreOffice\program\soffice.exe"
 )
 $Soffice = $SofficeCandidates | Where-Object { $_ -and (Test-Path $_) } | Select-Object -First 1
+$WordAvailable = $false
+try {
+    $WordAvailable = $null -ne [type]::GetTypeFromProgID("Word.Application")
+} catch {
+    $WordAvailable = $false
+}
 $NodeCommand = Get-Command node -ErrorAction SilentlyContinue
 $NodePath = if ($NodeCommand) { $NodeCommand.Source } else { $null }
 
@@ -85,6 +91,7 @@ $Settings = [ordered]@{
     max_pages = $null
     paddle_device = $PaddleDevice
     paddle_lang = "ch"
+    word_backend = "auto"
     libreoffice_path = $Soffice
     pdftoppm_path = $null
     node_path = $NodePath
@@ -97,8 +104,12 @@ Write-Host "Installation complete. Running diagnostics..."
 & $Python -m docreview --config settings.windows.json doctor
 Write-Host ""
 Write-Host "Run: powershell -ExecutionPolicy Bypass -File scripts\run_windows.ps1"
-if (-not $Soffice) {
-    Write-Warning "LibreOffice was not found. Install it or set libreoffice_path in settings.windows.json."
+if ($WordAvailable) {
+    Write-Host "Microsoft Word COM detected. It will be used before LibreOffice."
+} elseif ($Soffice) {
+    Write-Warning "Microsoft Word was not detected. LibreOffice will be used as the Word fallback."
+} else {
+    Write-Warning "Neither Microsoft Word nor LibreOffice was found. Word files cannot be processed."
 }
 if (-not $ArtifactNodeModules) {
     Write-Warning "@oai/artifact-tool is not configured. The app works, but Excel export is disabled."

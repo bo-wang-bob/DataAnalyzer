@@ -40,6 +40,44 @@ def find_pdftoppm(configured: Path | None = None) -> Path | None:
     return Path(found) if found else None
 
 
+def find_powershell() -> Path | None:
+    if platform.system() != "Windows":
+        return None
+    for name in ("pwsh.exe", "powershell.exe"):
+        found = shutil.which(name)
+        if found:
+            return Path(found)
+    system_root = os.environ.get("SystemRoot")
+    if system_root:
+        candidate = (
+            Path(system_root)
+            / "System32"
+            / "WindowsPowerShell"
+            / "v1.0"
+            / "powershell.exe"
+        )
+        if candidate.is_file():
+            return candidate.resolve()
+    return None
+
+
+def microsoft_word_available() -> bool:
+    if platform.system() != "Windows":
+        return False
+    try:
+        import winreg  # type: ignore[attr-defined]
+
+        with winreg.OpenKey(
+            winreg.HKEY_CLASSES_ROOT,
+            r"Word.Application\CLSID",
+            0,
+            winreg.KEY_READ,
+        ):
+            return True
+    except (ImportError, OSError):
+        return False
+
+
 def find_artifact_node_modules(
     root_dir: Path, configured: Path | None = None
 ) -> Path | None:

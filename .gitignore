@@ -2,11 +2,14 @@
 .venv/
 __pycache__/
 *.py[cod]
+*.egg-info/
 .pytest_cache/
 .runtime/
 .data/
+.server-data/
 output/
 node_modules
+.env
 config.yaml
 settings.json
 settings.windows.json

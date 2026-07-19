@@ -27,20 +27,20 @@ def export_review_workbook(
         settings.root_dir, settings.artifact_node_modules
     )
     node = find_node(settings.root_dir, settings.node_path, artifact_modules)
-    if not node:
-        raise ExportError(
-            "未找到 Node.js。请安装 Node.js，或在 settings.json 设置 node_path"
-        )
-    if not artifact_modules:
-        raise ExportError(
-            "未找到 @oai/artifact-tool。请设置 DOCREVIEW_NODE_MODULES 或 "
-            "settings.json 的 artifact_node_modules"
-        )
+    if not node or not artifact_modules:
+        from .xlsx_fallback import export_with_xlsxwriter
+
+        try:
+            return export_with_xlsxwriter(db, settings, filename)
+        except Exception as exc:
+            raise ExportError(str(exc)) from exc
     builder = settings.root_dir / "tools" / "build_review_workbook.mjs"
     if not builder.exists():
         raise ExportError(f"缺少 Excel 构建器: {builder}")
-    matches = db.list_matches(limit=100_000)
-    unsupported = db.list_unsupported()
+    matches = _with_display_source_paths(
+        db.list_matches(limit=100_000), settings
+    )
+    unsupported = _with_display_source_paths(db.list_unsupported(), settings)
     payload = {
         "matches": matches,
         "unsupported": unsupported,
@@ -64,6 +64,37 @@ def export_review_workbook(
         creationflags=subprocess_no_window_flag(),
     )
     if result.returncode != 0 or not output_path.exists():
-        detail = result.stderr.strip() or result.stdout.strip() or "Excel 导出失败"
+        detail = _subprocess_error_detail(result.stderr, result.stdout)
         raise ExportError(detail)
     return output_path
+
+
+def _subprocess_error_detail(stderr: str, stdout: str) -> str:
+    raw = stderr.strip() or stdout.strip()
+    if not raw:
+        return "Excel 导出失败"
+    lines = [line.strip() for line in raw.splitlines() if line.strip()]
+    for prefix in ("Error:", "TypeError:", "RangeError:", "ReferenceError:"):
+        for line in lines:
+            if line.startswith(prefix):
+                return line[:1000]
+    for line in reversed(lines):
+        if not line.startswith(("at ", "Node.js ")) and len(line) <= 1000:
+            return line
+    return "Excel 构建器执行失败；请在终端运行 docreview export 查看详细日志"
+
+
+def _with_display_source_paths(rows: list[dict], settings: AppSettings) -> list[dict]:
+    upload_root = settings.data_dir.parent / "uploads"
+    if not upload_root.is_dir():
+        return rows
+    root = upload_root.resolve()
+    result: list[dict] = []
+    for row in rows:
+        item = dict(row)
+        try:
+            item["source_path"] = Path(str(item.get("source_path", ""))).resolve().relative_to(root).as_posix()
+        except ValueError:
+            pass
+        result.append(item)
+    return result

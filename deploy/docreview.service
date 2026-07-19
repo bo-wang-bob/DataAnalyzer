@@ -1,0 +1,32 @@
+[Unit]
+Description=DocReview GPU document analysis server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=docreview
+Group=docreview
+WorkingDirectory=/opt/dataanalyzer
+EnvironmentFile=/opt/dataanalyzer/deploy/.env
+Environment=HOME=/var/lib/docreview
+Environment=TMPDIR=/var/lib/docreview/tmp
+Environment=PYTHONDONTWRITEBYTECODE=1
+Environment=PYTHONUNBUFFERED=1
+Environment=PADDLE_PDX_MODEL_SOURCE=bos
+Environment=PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK=True
+ExecStart=/opt/dataanalyzer/.venv/bin/docreview --config /opt/dataanalyzer/deploy/settings.server.json server --host 0.0.0.0 --port 8765 --storage /var/lib/docreview
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+UMask=0077
+LimitNOFILE=65535
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=/var/lib/docreview
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+
+[Install]
+WantedBy=multi-user.target

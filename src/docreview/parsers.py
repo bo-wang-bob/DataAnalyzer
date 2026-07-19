@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+import platform
 import statistics
 import subprocess
 from pathlib import Path
@@ -10,7 +11,13 @@ from PIL import Image, ImageOps
 
 from .models import AppSettings, BBox, ContentBlock, ParseResult, TextLine
 from .ocr import OCREngine
-from .platform_tools import find_libreoffice, find_pdftoppm, subprocess_no_window_flag
+from .platform_tools import (
+    find_libreoffice,
+    find_pdftoppm,
+    find_powershell,
+    microsoft_word_available,
+    subprocess_no_window_flag,
+)
 
 
 class ParseError(RuntimeError):
@@ -151,16 +158,92 @@ def parse_pdf(
 def convert_word_to_pdf(
     source_path: Path, document_id: str, settings: AppSettings
 ) -> Path:
-    soffice = find_libreoffice(settings.libreoffice_path)
-    if not soffice:
-        raise ParseError(
-            "未找到 LibreOffice。请安装 LibreOffice，或在 settings.json 设置 libreoffice_path"
-        )
     output_dir = settings.data_dir / "converted" / document_id
     output_dir.mkdir(parents=True, exist_ok=True)
     expected = output_dir / f"{source_path.stem}.pdf"
     if expected.exists():
         return expected
+
+    backend = settings.word_backend.strip().lower().replace("_", "-")
+    aliases = {"word": "microsoft-word", "msword": "microsoft-word"}
+    backend = aliases.get(backend, backend)
+    if backend not in {"auto", "microsoft-word", "libreoffice"}:
+        raise ParseError(
+            f"未知 Word 转换后端: {settings.word_backend}；"
+            "可选值为 auto、microsoft-word、libreoffice"
+        )
+
+    failures: list[str] = []
+    if backend in {"auto", "microsoft-word"}:
+        if platform.system() != "Windows":
+            failures.append("Microsoft Word COM 仅支持 Windows")
+        elif not microsoft_word_available():
+            failures.append("未检测到 Microsoft Word 桌面版")
+        else:
+            try:
+                return _convert_with_microsoft_word(source_path, expected, settings)
+            except Exception as exc:
+                failures.append(f"Microsoft Word: {exc}")
+        if backend == "microsoft-word":
+            raise ParseError("Word 转 PDF 失败：" + "；".join(failures))
+
+    if backend in {"auto", "libreoffice"}:
+        try:
+            return _convert_with_libreoffice(source_path, expected, output_dir, settings)
+        except Exception as exc:
+            failures.append(f"LibreOffice: {exc}")
+
+    raise ParseError("Word 转 PDF 失败：" + "；".join(failures))
+
+
+def _convert_with_microsoft_word(
+    source_path: Path, expected: Path, settings: AppSettings
+) -> Path:
+    powershell = find_powershell()
+    script = settings.root_dir / "tools" / "word_to_pdf.ps1"
+    if not powershell:
+        raise ParseError("未找到 PowerShell")
+    if not script.is_file():
+        raise ParseError(f"缺少 Microsoft Word 转换脚本: {script}")
+    result = subprocess.run(
+        [
+            str(powershell),
+            "-NoLogo",
+            "-NoProfile",
+            "-NonInteractive",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File",
+            str(script),
+            "-InputPath",
+            str(source_path.resolve()),
+            "-OutputPath",
+            str(expected.resolve()),
+        ],
+        capture_output=True,
+        text=True,
+        timeout=180,
+        creationflags=subprocess_no_window_flag(),
+    )
+    if result.returncode != 0 or not expected.exists():
+        if expected.exists():
+            expected.unlink()
+        detail = result.stderr.strip() or result.stdout.strip() or "未生成 PDF"
+        raise ParseError(detail)
+    return expected
+
+
+def _convert_with_libreoffice(
+    source_path: Path,
+    expected: Path,
+    output_dir: Path,
+    settings: AppSettings,
+) -> Path:
+    soffice = find_libreoffice(settings.libreoffice_path)
+    if not soffice:
+        raise ParseError(
+            "未找到 LibreOffice；可安装 LibreOffice 或设置 libreoffice_path"
+        )
     profile = output_dir / "libreoffice-profile"
     profile.mkdir(parents=True, exist_ok=True)
     command = [
@@ -185,7 +268,7 @@ def convert_word_to_pdf(
         if alternatives:
             return alternatives[0]
         detail = result.stderr.strip() or result.stdout.strip() or "未生成 PDF"
-        raise ParseError(f"Word 转 PDF 失败: {detail}")
+        raise ParseError(detail)
     return expected
 
 

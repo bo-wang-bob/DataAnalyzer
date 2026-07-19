@@ -3,7 +3,7 @@ HOST ?= 127.0.0.1
 PORT ?= 8765
 BUNDLED_NODE_MODULES ?=
 
-.PHONY: setup link-node-modules build-vision run scan
+.PHONY: setup link-node-modules build-vision run scan server
 
 setup:
 	$(PYTHON) -m venv .venv
@@ -28,3 +28,6 @@ run: build-vision link-node-modules
 
 scan: build-vision link-node-modules
 	PYTHONPATH=src $(PYTHON) -m docreview scan --source datas --keywords-file keywords.txt
+
+server:
+	PYTHONPATH=src $(PYTHON) -m docreview server --host 0.0.0.0 --port $(PORT) --storage .server-data

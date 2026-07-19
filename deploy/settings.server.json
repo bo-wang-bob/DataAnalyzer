@@ -1,0 +1,16 @@
+{
+  "data_dir": "/var/lib/docreview/system-data",
+  "output_dir": "/var/lib/docreview/system-output",
+  "ocr_backend": "paddleocr",
+  "render_dpi": 180,
+  "native_text_min_chars": 20,
+  "embedded_image_min_area": 0.02,
+  "max_pages": null,
+  "paddle_device": "gpu:0",
+  "paddle_lang": "ch",
+  "word_backend": "libreoffice",
+  "libreoffice_path": "/usr/bin/libreoffice",
+  "pdftoppm_path": "/usr/bin/pdftoppm",
+  "node_path": null,
+  "artifact_node_modules": null
+}
